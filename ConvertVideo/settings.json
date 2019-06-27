@@ -1,0 +1,11 @@
+﻿{
+    "FfmpegFullPath": "C:\\Users\\Jan\\Videos\\ffmpeg\\bin\\ffmpeg.exe",
+    "StartImageFile": "C:\\Users\\Jan\\Videos\\brandweer.start.png",
+    "StopImageFile": "C:\\Users\\Jan\\Videos\\brandweer.stop.png",
+    "SourceFolder": "\\\\nuc.lan\\tv\\tekenfilms",
+    "OutputFolder": "\\\\diskstation.lan\\public\\tekenfilms\\brandweermansam",
+    "FilenameFilter": "Brandweerman",
+    "SkipFileIfOutputExists": true,
+    "DefaultVideoLengthInSeconds": 1200,
+    "FramesPerSecond": 25
+}

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ConvertVideo": {
+      "commandName": "Project",
+      "commandLineArgs": "settings.local.json"
+    }
+  }
+}
