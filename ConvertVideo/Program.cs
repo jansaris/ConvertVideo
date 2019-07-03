@@ -59,42 +59,58 @@ namespace ConvertVideo
             Logger.Info($"Convert all video's in {_inputFolder.FullName}");
             foreach (var file in _inputFolder.GetFiles())
             {
-                if (!(string.IsNullOrWhiteSpace(_settings.FilenameFilter) || 
-                      file.Name.Contains(_settings.FilenameFilter)))
+                _input = file;
+                _output = new FileInfo($"{_outputFolder.FullName}\\{_input.Name}.mp4");
+                if (FilterOnFileName(file.Name)) continue;
+                if (!ValidOutput(_output)) continue;
+
+                var firstKeyFrame = FindKeyFrame(_settings.StartImageFile);
+                if (firstKeyFrame == 0)
                 {
-                    Logger.Info($"Skip {file.FullName} because filename doesn't match {_settings.FilenameFilter}");
+                    Logger.Info($"Failed to find a key-frame. Skip {_inputFolder.FullName}");
                     continue;
                 }
 
-                _input = file;
-                _output = new FileInfo($"{_outputFolder.FullName}\\{_input.Name}.mp4");
-                if (_output.Exists)
-                {
-                    if (_settings.SkipFileIfOutputExists)
-                    {
-                        Logger.Info($"Output file '{_output.FullName}' already exists, skip this one");
-                        continue;
-                    }
-                    Logger.Info($"Output file '{_output.FullName}' already exists, delete it first");
-                    _output.Delete();
-                }
-
-                var firstKeyFrame = FindKeyFrame(_settings.StartImageFile);
                 var lastKeyFrame = FindKeyFrame(_settings.StopImageFile, firstKeyFrame);
-                if (lastKeyFrame == firstKeyFrame)
+                if (lastKeyFrame == 0 || lastKeyFrame <= firstKeyFrame)
                 {
                     Logger.Info($"Failed to find the end. Use the end time {_settings.DefaultVideoLengthInSeconds}s from the settings");
-                    lastKeyFrame = _settings.DefaultVideoLengthInSeconds * _settings.FramesPerSecond;
+                    lastKeyFrame = firstKeyFrame + _settings.DefaultVideoLengthInSeconds * _settings.FramesPerSecond;
                 }
+
                 ConvertVideo(firstKeyFrame, lastKeyFrame);
             }
         }
+
+        private bool ValidOutput(FileInfo output)
+        {
+            if (!output.Exists) return true;
+
+            if (_settings.SkipFileIfOutputExists)
+            {
+                Logger.Info($"Output file '{_output.FullName}' already exists, skip this one");
+                return false;
+            }
+            Logger.Info($"Output file '{_output.FullName}' already exists, delete it first");
+            _output.Delete();
+
+            return true;
+        }
+
+        private bool FilterOnFileName(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(_settings.FilenameFilter) || 
+                fileName.Contains(_settings.FilenameFilter)) return false;
+            Logger.Info($"Skip {fileName} because filename doesn't match {_settings.FilenameFilter}");
+            return true;
+        }
+
         private void ConvertVideo(int startFrame, int endFrame)
         {
             var start = TimeSpan.FromSeconds(startFrame / 25).ToString(TimeFormat);
             var end = TimeSpan.FromSeconds((endFrame - startFrame) / 25).ToString(TimeFormat);
             var arguments = $"-ss {start} -i \"{_input.FullName}\" -t {end} -c:v h264_nvenc \"{_output.FullName}\"";
-            RunFfmpeg(arguments, Logger.Info);
+            RunFfmpeg(arguments, Logger.Debug);
         }
 
         private int FindKeyFrame(string image, int startFrame = 0)
@@ -103,11 +119,6 @@ namespace ConvertVideo
             if (string.IsNullOrWhiteSpace(image)) return keyframe;
 
             var start = "";
-            //if (startFrame > 0)
-            //{
-            //    var time = TimeSpan.FromSeconds(startFrame / 25).ToString(TimeFormat);
-            //    start = $"-ss {time} ";
-            //}
 
             Logger.Info($"Find keyframe with image {image}");
             var arguments = $"{start}-i \"{_input.FullName}\" -loop 1 -i \"{image}\" -an -filter_complex \"blend=difference:shortest=1,blackframe=98:32\" -f null -";
@@ -156,7 +167,7 @@ namespace ConvertVideo
         private int? AnalyseForKeyFrame(string console)
         {
             if (string.IsNullOrWhiteSpace(console)) return null;
-            Logger.Info(console);
+            Logger.Debug(console);
             if (!console.StartsWith("[Parsed_blackframe_")) return null;
 
             Logger.Info("Found the image");
