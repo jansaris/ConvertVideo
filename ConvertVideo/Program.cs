@@ -63,22 +63,24 @@ namespace ConvertVideo
                 _output = new FileInfo($"{_outputFolder.FullName}\\{_input.Name}.mp4");
                 if (FilterOnFileName(file.Name)) continue;
                 if (!ValidOutput(_output)) continue;
+                Logger.Info($"Start conversion of {_input.FullName}");
 
                 var firstKeyFrame = FindKeyFrame(_settings.StartImageFile);
                 if (firstKeyFrame == 0)
                 {
-                    Logger.Info($"Failed to find a key-frame. Skip {_inputFolder.FullName}");
+                    Logger.Info($"Failed to find a key-frame. Skip {_input.FullName}");
                     continue;
                 }
 
                 var lastKeyFrame = FindKeyFrame(_settings.StopImageFile, firstKeyFrame);
                 if (lastKeyFrame == 0 || lastKeyFrame <= firstKeyFrame)
                 {
-                    Logger.Info($"Failed to find the end. Use the end time {_settings.DefaultVideoLengthInSeconds}s from the settings");
+                    Logger.Info($"No end key-frame. Use the end time {_settings.DefaultVideoLengthInSeconds}s from the settings");
                     lastKeyFrame = firstKeyFrame + _settings.DefaultVideoLengthInSeconds * _settings.FramesPerSecond;
                 }
 
                 ConvertVideo(firstKeyFrame, lastKeyFrame);
+                Logger.Info($"Finished conversion of {_input.FullName}");
             }
         }
 
@@ -130,7 +132,7 @@ namespace ConvertVideo
                 {
                     _keepRunning = false;
                     keyframe = frame.Value;
-                    Logger.Info($"found keyframe with image {image} at {keyframe}");
+                    Logger.Info($"Found keyframe with image {image} at {keyframe}");
                 }
             });
             return keyframe;
@@ -170,10 +172,10 @@ namespace ConvertVideo
             Logger.Debug(console);
             if (!console.StartsWith("[Parsed_blackframe_")) return null;
 
-            Logger.Info("Found the image");
+            Logger.Debug("Found the image");
             var index = console.LastIndexOf("last_keyframe:", StringComparison.Ordinal) + "last_keyframe:".Length;
             var keyframe = console.Substring(index, console.Length - index);
-            Logger.Info("Found a keyframe at: " + keyframe);
+            Logger.Debug("Found a keyframe at: " + keyframe);
             return int.Parse(keyframe);
         }
     }
