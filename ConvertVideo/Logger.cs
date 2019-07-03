@@ -5,6 +5,11 @@ namespace ConvertVideo
 {
     public static class Logger
     {
+        public static void Debug(string message)
+        {
+            Console($"INFO:  {message}");
+        }
+
         public static void Info(string message)
         {
             Log($"INFO:  {message}");
@@ -15,9 +20,14 @@ namespace ConvertVideo
             Log($"ERROR: {message}");
         }
 
+        private static void Console(string message)
+        {
+            System.Console.WriteLine(message);
+        }
+
         private static void Log(string message)
         {
-            Console.WriteLine(message);
+            System.Console.WriteLine(message);
             File.AppendAllText("ConvertVideo.log", $"{DateTime.Now:s} - {message}{Environment.NewLine}");
         }
     }
