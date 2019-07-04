@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
@@ -12,11 +12,19 @@ namespace ConvertVideo
 
         private FileInfo _input;
         private FileInfo _output;
-        private bool _keepRunning;
         private DirectoryInfo _inputFolder;
         private DirectoryInfo _outputFolder;
         private Settings _settings;
         private FfMpeg _ffmpeg;
+
+        private readonly CancellationTokenSource _cancel;
+        private readonly CancellationToken _token;
+
+        private Program()
+        {
+            _cancel = new CancellationTokenSource();
+            _token = _cancel.Token;
+        }
 
         static void Main(string[] args)
         {
@@ -25,7 +33,7 @@ namespace ConvertVideo
                 Logger.Info("Welcome to movie converter!");
                 var program = new Program();
                 program.Initialize(args);
-                program.Run();
+                program.Run().Wait();
             }
             catch (Exception ex)
             {
@@ -56,7 +64,15 @@ namespace ConvertVideo
             _ffmpeg = new FfMpeg(_settings);
         }
 
-        private void Run()
+        private async Task Run()
+        {
+            var keyboard = ListenForKeyboardInput();
+            var conversion = ConvertAll();
+            await Task.WhenAny(keyboard, conversion);
+            await conversion;
+        }
+
+        private async Task ConvertAll()
         {
             Logger.Info($"Convert all video's in {_inputFolder.FullName}");
             foreach (var file in _inputFolder.GetFiles())
@@ -67,26 +83,45 @@ namespace ConvertVideo
                 if (!ValidOutput(_output)) continue;
                 Logger.Info($"Start conversion of {_input.FullName}");
 
-                var firstKeyFrame = FindKeyFrame(_settings.StartImageFile);
-                if (firstKeyFrame == 0)
+                var startFrames = await FindKeyFrame(_settings.StartImageFile);
+                if (!startFrames.HasValue)
                 {
                     Logger.Info($"Failed to find a key-frame. Skip {_input.FullName}");
                     continue;
                 }
 
-                var lastKeyFrame = FindKeyFrame(_settings.StopImageFile, firstKeyFrame);
-                if (lastKeyFrame == 0 || lastKeyFrame <= firstKeyFrame)
+                var endFrame = await FindKeyFrame(_settings.StopImageFile);
+                if (!endFrame.HasValue)
                 {
-                    Logger.Info($"No end key-frame. Use the end time {_settings.DefaultVideoLengthInSeconds}s from the settings");
-                    lastKeyFrame = firstKeyFrame + _settings.DefaultVideoLengthInSeconds * _settings.FramesPerSecond;
+                    Logger.Info($"No end frame. Use the end time {_settings.DefaultVideoLengthInSeconds}s from the settings");
+                    endFrame = (startFrames.Value.frame + _settings.DefaultVideoLengthInSeconds * _settings.FramesPerSecond, 0);
                 }
 
-                ConvertVideo(firstKeyFrame, lastKeyFrame);
+                await ConvertVideo(startFrames.Value.keyframe, endFrame.Value.frame);
                 Logger.Info($"Finished conversion of {_input.FullName}");
             }
         }
 
-        private bool ValidOutput(FileInfo output)
+        private async Task ListenForKeyboardInput()
+        {
+            await Task.Run(() =>
+            {
+                while (!_cancel.IsCancellationRequested)
+                {
+                    var key = Console.ReadKey();
+                    Logger.Info($"Analyze keyboard input: {key}");
+                    if (key.KeyChar != 'q') continue;
+
+                    Logger.Info("Cancellation requested.....");
+                    _cancel.Cancel();
+                    Logger.Info("Cancel Ffmpeg");
+                    _ffmpeg.Cancel();
+                    Logger.Info("Cancelled Ffmpeg");
+                }
+            }, _token);
+        }
+
+        private bool ValidOutput(FileSystemInfo output)
         {
             if (!output.Exists) return true;
 
@@ -111,47 +146,17 @@ namespace ConvertVideo
 
         private async Task ConvertVideo(int startFrame, int endFrame)
         {
-            var start = TimeSpan.FromSeconds(startFrame / 25).ToString(TimeFormat);
-            var end = TimeSpan.FromSeconds((endFrame - startFrame) / 25).ToString(TimeFormat);
+            if (_token.IsCancellationRequested) return;
+            var start = TimeSpan.FromSeconds((double)startFrame / 25).ToString(TimeFormat);
+            var end = TimeSpan.FromSeconds((double)(endFrame - startFrame) / 25).ToString(TimeFormat);
             await _ffmpeg.Convert(_input.FullName, _output.FullName, start, end);
         }
 
-        private async Task<int> FindKeyFrame(string image, int startFrame = 0)
+        private async Task<(int frame, int keyframe)?> FindKeyFrame(string image)
         {
-            var keyframe = startFrame;
-            if (string.IsNullOrWhiteSpace(image)) return keyframe;
-
-            var start = "";
-
-            Logger.Info($"Find keyframe with image {image}");
-            var arguments = $"{start}-i \"{_input.FullName}\" -loop 1 -i \"{image}\" -an -filter_complex \"blend=difference:shortest=1,blackframe=98:32\" -f null -";
-            RunFfmpeg(arguments, line =>
-            {
-                if (!_keepRunning) return;
-                var frame = AnalyseForKeyFrame(line);
-                if (frame.HasValue)
-                {
-                    _keepRunning = false;
-                    keyframe = frame.Value;
-                    Logger.Info($"Found keyframe with image {image} at {keyframe}");
-                }
-            });
-            return keyframe;
-        }
-
-        
-
-        private int? AnalyseForKeyFrame(string console)
-        {
-            if (string.IsNullOrWhiteSpace(console)) return null;
-            Logger.Debug(console);
-            if (!console.StartsWith("[Parsed_blackframe_")) return null;
-
-            Logger.Debug("Found the image");
-            var index = console.LastIndexOf("last_keyframe:", StringComparison.Ordinal) + "last_keyframe:".Length;
-            var keyframe = console.Substring(index, console.Length - index);
-            Logger.Debug("Found a keyframe at: " + keyframe);
-            return int.Parse(keyframe);
+            if (_token.IsCancellationRequested) return null;
+            if (string.IsNullOrWhiteSpace(image)) return null;
+            return await _ffmpeg.FindFrameByImage(_input.FullName, image);
         }
     }
 }
