@@ -1,5 +1,6 @@
 ﻿{
     "FfmpegFullPath": "C:\\Users\\Jan\\Videos\\ffmpeg\\bin\\ffmpeg.exe",
+    "FfmpegEncoder": "h264_nvenc",
     "StartImageFile": "C:\\Users\\Jan\\Videos\\brandweer.start.png",
     "StopImageFile": "",
     "SourceFolder": "\\\\nuc.lan\\tv\\Tekenfilm\\BrandweermanSam",

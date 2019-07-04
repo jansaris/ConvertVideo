@@ -16,6 +16,7 @@ namespace ConvertVideo
         private DirectoryInfo _inputFolder;
         private DirectoryInfo _outputFolder;
         private Settings _settings;
+        private FfMpeg _ffmpeg;
 
         static void Main(string[] args)
         {
@@ -52,6 +53,7 @@ namespace ConvertVideo
                throw new Exception($"Cannot write to {_outputFolder.FullName}");
             }
             Logger.Info("Initialized settings");
+            _ffmpeg = new FfMpeg(_settings);
         }
 
         private void Run()
@@ -107,15 +109,14 @@ namespace ConvertVideo
             return true;
         }
 
-        private void ConvertVideo(int startFrame, int endFrame)
+        private async Task ConvertVideo(int startFrame, int endFrame)
         {
             var start = TimeSpan.FromSeconds(startFrame / 25).ToString(TimeFormat);
             var end = TimeSpan.FromSeconds((endFrame - startFrame) / 25).ToString(TimeFormat);
-            var arguments = $"-ss {start} -i \"{_input.FullName}\" -t {end} -c:v h264_nvenc \"{_output.FullName}\"";
-            RunFfmpeg(arguments, Logger.Debug);
+            await _ffmpeg.Convert(_input.FullName, _output.FullName, start, end);
         }
 
-        private int FindKeyFrame(string image, int startFrame = 0)
+        private async Task<int> FindKeyFrame(string image, int startFrame = 0)
         {
             var keyframe = startFrame;
             if (string.IsNullOrWhiteSpace(image)) return keyframe;
@@ -138,33 +139,7 @@ namespace ConvertVideo
             return keyframe;
         }
 
-        private void RunFfmpeg(string arguments, Action<string> handleOutput)
-        {
-            Logger.Info($"Start ffmpeg with: {arguments}");
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = _settings.FfmpegFullPath,
-                Arguments = arguments,
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-            var process = new Process { StartInfo = processInfo };
-            process.OutputDataReceived += (sender, args) => handleOutput(args.Data);
-            process.ErrorDataReceived += (sender, args) => handleOutput(args.Data);
-            _keepRunning = true;
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-
-            while (_keepRunning && !process.HasExited)
-            {
-                Task.Delay(100).Wait();
-            }
-
-            if (!process.HasExited) process.Kill();
-        }
+        
 
         private int? AnalyseForKeyFrame(string console)
         {

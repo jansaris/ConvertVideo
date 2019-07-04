@@ -7,6 +7,7 @@ namespace ConvertVideo
     public class Settings
     {
         public string FfmpegFullPath;
+        public string FfmpegEncoder;
         public string StartImageFile;
         public string StopImageFile;
         public string SourceFolder;
