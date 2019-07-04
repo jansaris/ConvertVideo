@@ -16,5 +16,6 @@ namespace ConvertVideo
         public bool SkipFileIfOutputExists;
         public int DefaultVideoLengthInSeconds;
         public int FramesPerSecond;
+        public int ThumbnailTakenInFramesAfterStart;
     }
 }

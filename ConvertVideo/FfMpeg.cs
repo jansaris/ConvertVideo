@@ -11,45 +11,72 @@ namespace ConvertVideo
     {
         private readonly Settings _settings;
         private readonly List<CancellationTokenSource> _cancellationTokenSources = new List<CancellationTokenSource>();
+        private (int frame, int keyframe)? _frame = null;
 
         public FfMpeg(Settings settings)
         {
             _settings = settings;
         }
 
-        //Extract single frame
-        //ffmpeg.exe -ss 01:23:45 -i input -vframes 1 -q:v 2 output.jpg
-
-        //Find frame by image
-        //ffmpeg.exe -i "input.mp4" -loop 1 -i "image.png" -an -filter_complex "blend=difference:shortest=1,blackframe=98:32" -f null -
-        public async Task<(int frame, int keyframe)?> FindFrameByImage(string movie, string image)
-        {
+         public async Task<(int frame, int keyframe)?> FindFrameByImage(string movie, string image)
+         {
+            //Find frame by image
+            //ffmpeg.exe -i "input.mp4" -loop 1 -i "image.png" -an -filter_complex "blend=difference:shortest=1,blackframe=98:32" -f null -
             Logger.Info($"Find keyframe with image {image}");
             var arguments = $"-i \"{movie}\" -loop 1 -i \"{image}\" -an -filter_complex \"blend=difference:shortest=1,blackframe=98:32\" -f null -";
-            return await HandleWithCancellationToken(async token =>
+            _frame = null;
+
+            await HandleWithCancellationToken(async token =>
             {
-                (int frame, int keyframe)? frame = null;
                 await RunFfmpeg(arguments, line =>
                 {
-                    var result = AnalyzeForKeyFrame(line, token);
-                    if (result != null) frame = result;
+                    if (_frame != null) return;
+
+                    var result = AnalyzeForKeyFrame(line);
+                    if (result == null) return;
+
+                    _frame = result;
+                    token.Cancel();
+
                 }, token.Token);
-                return frame;
             });
+
+            return _frame;
         }
 
-        private (int frame, int keyframe)? AnalyzeForKeyFrame(string line, CancellationTokenSource token)
+        public async Task ExtractImage(string movie, string image, string start)
         {
-            if (token.IsCancellationRequested) return null;
-            var frame = AnalyzeForKeyFrame(line);
+            //Extract single frame
+            //ffmpeg.exe -ss 01:23:45 -i input -vframes 1 -q:v 2 output.jpg
+            var arguments = $"-ss {start} -i \"{movie}\" -vframes 1 -q:v 2 \"{image}\"";
+            await RunFfmpeg(arguments, Logger.Debug);
+        }
+
+        public async Task Convert(string input, string output, string start, string end)
+        {
+            //Convert video
+            //ffmpeg.exe -ss 00:01:23 -i "input.mp4" -t 00:02:42 -c:v h264_nvenc "output.mp4"
+            var arguments = $"-ss {start} -i \"{input}\" -t {end} -c:v {_settings.FfmpegEncoder} \"{output}\"";
+            await RunFfmpeg(arguments, Logger.Debug);
+        }
+
+        public void Cancel()
+        {
+            List<CancellationTokenSource> tokens;
+            lock (_cancellationTokenSources) tokens = _cancellationTokenSources.ToList();
+            tokens.ForEach(c => c.Cancel());
+        }
+
+        private (int frame, int keyframe)? AnalyzeForKeyFrame(string line)
+        {
+            var frame = FindFrameInConsoleLine(line);
             if (frame == null) return null;
 
             Logger.Info($"Found keyframe with for image at {frame.Value.frame} with keyframe {frame.Value.keyframe}");
-            token.Cancel();
             return frame;
         }
 
-        private (int frame, int keyframe)? AnalyzeForKeyFrame(string console)
+        private (int frame, int keyframe)? FindFrameInConsoleLine(string console)
         {
             Logger.Debug(console);
             //[Parsed_blackframe_1 @ 000002badb4ee880] frame:49 pblack:99 pts:25088 t:1.960000 type:P last_keyframe:0
@@ -68,36 +95,22 @@ namespace ConvertVideo
         {
             var startIndex = console.LastIndexOf(frame, StringComparison.Ordinal) + frame.Length;
             var endIndex = console.IndexOf(' ', startIndex);
-            if (startIndex >= 0 && endIndex > startIndex)
-            {
-                var frameString = console.Substring(startIndex, endIndex - startIndex);
-                if (int.TryParse(frameString, out int keyframe)) return keyframe;
-            }
+            if (endIndex == -1) endIndex = console.Length;
+
+            if (startIndex < 0 || endIndex <= startIndex) return null;
+
+            var frameString = console.Substring(startIndex, endIndex - startIndex);
+            if (int.TryParse(frameString, out var keyframe)) return keyframe;
             return null;
         }
 
-        public async Task Convert(string input, string output, string start, string end)
-        {
-            //Convert video
-            //ffmpeg.exe -ss 00:01:23 -i "input.mp4" -t 00:02:42 -c:v h264_nvenc "output.mp4"
-            var arguments = $"-ss {start} -i \"{input}\" -t {end} -c:v {_settings.FfmpegEncoder} \"{output}\"";
-            await RunFfmpeg(arguments, Logger.Debug);
-        }
-
-        public void Cancel()
-        {
-            List<CancellationTokenSource> tokens;
-            lock (_cancellationTokenSources) tokens = _cancellationTokenSources.ToList();
-            tokens.ForEach(c => c.Cancel());
-        }
-
-        private async Task<T> HandleWithCancellationToken<T>(Func<CancellationTokenSource, Task<T>> job)
+        private async Task HandleWithCancellationToken(Func<CancellationTokenSource, Task> job)
         {
             CancellationTokenSource source = new CancellationTokenSource();
             try
             {
                 lock (_cancellationTokenSources) _cancellationTokenSources.Add(source);
-                return await job(source);
+                await job(source);
             }
             finally
             {
@@ -107,11 +120,9 @@ namespace ConvertVideo
 
         private async Task RunFfmpeg(string arguments, Action<string> handleOutput)
         {
-            await HandleWithCancellationToken<object>(async token =>
-            {
-                await RunFfmpeg(arguments, handleOutput, token.Token);
-                return null;
-            });
+            await HandleWithCancellationToken(async token =>
+                await RunFfmpeg(arguments, handleOutput, token.Token)
+            );
         }
 
         private async Task RunFfmpeg(string arguments, Action<string> handleOutput, CancellationToken token)

@@ -78,7 +78,8 @@ namespace ConvertVideo
             foreach (var file in _inputFolder.GetFiles())
             {
                 _input = file;
-                _output = new FileInfo($"{_outputFolder.FullName}\\{_input.Name}.mp4");
+                var inputNameWithoutExtension = _input.Name.Replace(_input.Extension, "");
+                _output = new FileInfo($"{_outputFolder.FullName}\\{inputNameWithoutExtension}.mp4");
                 if (FilterOnFileName(file.Name)) continue;
                 if (!ValidOutput(_output)) continue;
                 Logger.Info($"Start conversion of {_input.FullName}");
@@ -97,7 +98,8 @@ namespace ConvertVideo
                     endFrame = (startFrames.Value.frame + _settings.DefaultVideoLengthInSeconds * _settings.FramesPerSecond, 0);
                 }
 
-                await ConvertVideo(startFrames.Value.keyframe, endFrame.Value.frame);
+                await CreateThumbnail(startFrames.Value);
+                //await ConvertVideo(startFrames.Value.keyframe, endFrame.Value.frame);
                 Logger.Info($"Finished conversion of {_input.FullName}");
             }
         }
@@ -144,19 +146,27 @@ namespace ConvertVideo
             return true;
         }
 
+        private async Task<(int frame, int keyframe)?> FindKeyFrame(string image)
+        {
+            if (_token.IsCancellationRequested) return null;
+            if (string.IsNullOrWhiteSpace(image)) return null;
+            return await _ffmpeg.FindFrameByImage(_input.FullName, image);
+        }
+
+        private async Task CreateThumbnail((int frame, int keyframe) startFrames)
+        {
+            if (_token.IsCancellationRequested) return;
+            var frameNumber = startFrames.frame + _settings.ThumbnailTakenInFramesAfterStart;
+            var start = TimeSpan.FromSeconds((double)frameNumber / 25).ToString(TimeFormat);
+            await _ffmpeg.ExtractImage(_input.FullName, $"{_output.FullName.Replace(_output.Extension,"")}.jpg", start);
+        }
+
         private async Task ConvertVideo(int startFrame, int endFrame)
         {
             if (_token.IsCancellationRequested) return;
             var start = TimeSpan.FromSeconds((double)startFrame / 25).ToString(TimeFormat);
             var end = TimeSpan.FromSeconds((double)(endFrame - startFrame) / 25).ToString(TimeFormat);
             await _ffmpeg.Convert(_input.FullName, _output.FullName, start, end);
-        }
-
-        private async Task<(int frame, int keyframe)?> FindKeyFrame(string image)
-        {
-            if (_token.IsCancellationRequested) return null;
-            if (string.IsNullOrWhiteSpace(image)) return null;
-            return await _ffmpeg.FindFrameByImage(_input.FullName, image);
         }
     }
 }

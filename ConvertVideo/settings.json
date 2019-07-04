@@ -2,11 +2,12 @@
     "FfmpegFullPath": "C:\\Users\\Jan\\Videos\\ffmpeg\\bin\\ffmpeg.exe",
     "FfmpegEncoder": "h264_nvenc",
     "StartImageFile": "C:\\Users\\Jan\\Videos\\brandweer.start.png",
-    "StopImageFile": "",
-    "SourceFolder": "\\\\nuc.lan\\tv\\Tekenfilm\\BrandweermanSam",
-    "OutputFolder": "\\\\diskstation.lan\\public\\tekenfilms\\brandweermansam",
+    "StopImageFile": "", 
+    "SourceFolder": "\\\\diskstation.lan\\public\\tekenfilms\\brandweermansam",
+    "OutputFolder": "\\\\nuc.lan\\tv\\Tekenfilm\\Brandweerman Sam",
     "FilenameFilter": "Brandweerman",
     "SkipFileIfOutputExists": true,
     "DefaultVideoLengthInSeconds": 700,
-    "FramesPerSecond": 25
+    "FramesPerSecond": 25,
+    "ThumbnailTakenInFramesAfterStart": "775" 
 }
