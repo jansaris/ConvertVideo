@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Drawing;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,10 +31,10 @@ namespace ConvertVideo
             try
             {
                 Logger.Info("Welcome to movie converter!");
-                Logger.Info(ExtractTitle(@"E:\GitHub\ConvertVideo\Test\vlc_2019-07-05_11-19-08.png"));
                 var program = new Program();
                 program.Initialize(args);
-                program.Run().Wait();
+                Logger.Info(program.ExtractTitle(@"\\diskstation.lan\public\tekenfilms\BrandweermanSam\Brandweerman Sam-16.jpg"));
+                //program.Run().Wait();
             }
             catch (Exception ex)
             {
@@ -118,13 +117,22 @@ namespace ConvertVideo
             throw new NotImplementedException();
         }
 
-        private static string ExtractTitle(string thumbnail)
+        public string ExtractTitle(string thumbnail)
         {
             var pix = Pix.LoadFromFile(thumbnail);
-            var engine = new TesseractEngine(".", "nld", EngineMode.Default);
+            var engine = new TesseractEngine(".", _settings.TextLanguage, EngineMode.Default);
             //x400 y530 w600 h70
-            var page = engine.Process(pix, new Rect(400, 530, 600, 70), PageSegMode.SingleLine);
-            return page.GetText();
+            foreach (var rect in _settings.TextLocations)
+            {
+                using (var page = engine.Process(pix, new Rect(rect.X, rect.Y, rect.Width, rect.Height), PageSegMode.SingleBlock))
+                {
+                    var text = page.GetText();
+                    var confidence = page.GetMeanConfidence();
+                    if (confidence > 0.9) return text;
+                }
+            }
+
+            return null;
         }
 
         private async Task ListenForKeyboardInput()

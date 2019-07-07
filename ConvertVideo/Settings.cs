@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Tesseract;
 
 namespace ConvertVideo
 {
@@ -17,5 +18,12 @@ namespace ConvertVideo
         public int DefaultVideoLengthInSeconds;
         public int FramesPerSecond;
         public int ThumbnailTakenInFramesAfterStart;
+        public List<Rectangle> TextLocations;
+        public string TextLanguage;
+    }
+
+    public class Rectangle
+    {
+        public int X, Y, Width, Height;
     }
 }
