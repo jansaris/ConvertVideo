@@ -7,12 +7,17 @@ namespace ConvertVideo
     {
         public static void Debug(string message)
         {
-            Console($"INFO:  {message}");
+            Console($"DEBUG:  {message}");
         }
 
         public static void Info(string message)
         {
-            Log($"INFO:  {message}");
+            Log($"INFO :  {message}");
+        }
+
+        public static void Warn(string message)
+        {
+            Log($"WARN : {message}");
         }
 
         public static void Error(string message)

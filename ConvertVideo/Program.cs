@@ -1,5 +1,7 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -19,6 +21,7 @@ namespace ConvertVideo
 
         private readonly CancellationTokenSource _cancel;
         private readonly CancellationToken _token;
+        private string _outputFileName;
 
         private Program()
         {
@@ -33,8 +36,7 @@ namespace ConvertVideo
                 Logger.Info("Welcome to movie converter!");
                 var program = new Program();
                 program.Initialize(args);
-                Logger.Info(program.ExtractTitle(@"\\diskstation.lan\public\tekenfilms\BrandweermanSam\Brandweerman Sam-16.jpg"));
-                //program.Run().Wait();
+                program.Run().Wait();
             }
             catch (Exception ex)
             {
@@ -79,8 +81,9 @@ namespace ConvertVideo
             foreach (var file in _inputFolder.GetFiles())
             {
                 _input = file;
-                var output = GetOutputFileAs("mp4");
                 if (FilterOnFileName(file.Name)) continue;
+                GenerateOutputName();
+                var output = GetOutputFileAs("mp4");
                 if (!ValidOutput(output)) continue;
                 Logger.Info($"Start conversion of {_input.FullName}");
 
@@ -101,20 +104,50 @@ namespace ConvertVideo
                 var thumbnail = await CreateThumbnail(startFrames.Value);
                 var title = ExtractTitle(thumbnail);
                 await ConvertVideo(startFrames.Value.keyframe, endFrame.Value.frame, output.FullName);
-                CreateNfo(title);
+                CreateNfo(title, new FileInfo(thumbnail).Name);
                 Logger.Info($"Finished conversion of {_input.FullName}");
             }
         }
 
-        private FileInfo GetOutputFileAs(string extension)
+        private void GenerateOutputName()
         {
+            Logger.Info($"Prepare output filename for: {_input.Name}");
             var inputNameWithoutExtension = _input.Name.Replace(_input.Extension, "");
-            return new FileInfo($"{_outputFolder.FullName}\\{inputNameWithoutExtension}.{extension}");
+            Logger.Debug($"Removed the extension: {inputNameWithoutExtension}");
+            var regex = new Regex(@"(-\d+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+            if (regex.Match(inputNameWithoutExtension).Success)
+            {
+                //Input name ends with a number eg. -2 or -13
+                //Strip it
+                inputNameWithoutExtension = inputNameWithoutExtension.Substring(0, inputNameWithoutExtension.LastIndexOf('-'));
+                Logger.Debug($"Removed last number from input: {inputNameWithoutExtension}");
+            }
+
+            var episodeNumber = "S01E01";
+            foreach (var output in _outputFolder.EnumerateFiles().OrderByDescending(f => f.Name))
+            {
+                if (!output.Name.Contains("S01E")) continue;
+
+                Logger.Debug($"Found the last episode in the output directory: {output.Name}");
+                var index = output.Name.IndexOf("S01E", StringComparison.Ordinal) + 4;
+                var newEpisodeNumber = Convert.ToInt32(output.Name.Substring(index, 2)) + 1;
+                episodeNumber = $"S01E{newEpisodeNumber:D2}";
+                break;
+            }
+            Logger.Debug($"Episode number chosen as: {episodeNumber}");
+            _outputFileName = $"{inputNameWithoutExtension}.{episodeNumber}";
+            Logger.Info($"Output filename generated: {_outputFileName}");
         }
 
-        private void CreateNfo(string title)
+        private FileInfo GetOutputFileAs(string extension, string addition = "")
         {
-            throw new NotImplementedException();
+            return new FileInfo($"{_outputFolder.FullName}\\{_outputFileName}{addition}.{extension}");
+        }
+
+        private void CreateNfo(string title, string thumbnail)
+        {
+            var nfo = GetOutputFileAs("nfo");
+            File.WriteAllText(nfo.FullName, $"<?xml version=\"1.0\" encoding=\"utf-8\"?><episodedetails><title>{title}</title><thumb>{thumbnail}</thumb></episodedetails>");
         }
 
         public string ExtractTitle(string thumbnail)
@@ -128,11 +161,18 @@ namespace ConvertVideo
                 {
                     var text = page.GetText();
                     var confidence = page.GetMeanConfidence();
-                    if (confidence > 0.9) return text;
+                    Logger.Debug($"Extracted title ({confidence}): {text}");
+                    if (confidence > 0.7)
+                    {
+                        Logger.Info($"Found title ({confidence}): {text}");
+                        return text;
+                    }
                 }
             }
 
-            return null;
+            Logger.Warn($"Failed to extract title from: {thumbnail}");
+            var thumbFile = new FileInfo(thumbnail);
+            return thumbFile.Name.Replace(thumbFile.Extension, "");
         }
 
         private async Task ListenForKeyboardInput()
@@ -189,7 +229,7 @@ namespace ConvertVideo
             if (_token.IsCancellationRequested) return null;
             var frameNumber = startFrames.frame + _settings.ThumbnailTakenInFramesAfterStart;
             var start = TimeSpan.FromSeconds((double)frameNumber / 25).ToString(TimeFormat);
-            var thumbnail = GetOutputFileAs("jpg");
+            var thumbnail = GetOutputFileAs("jpg", "-thumb");
             await _ffmpeg.ExtractImage(_input.FullName, thumbnail.FullName, start);
             return thumbnail.FullName;
         }
