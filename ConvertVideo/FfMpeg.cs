@@ -23,7 +23,7 @@ namespace ConvertVideo
             //Find frame by image
             //ffmpeg.exe -i "input.mp4" -loop 1 -i "image.png" -an -filter_complex "blend=difference:shortest=1,blackframe=98:32" -f null -
             Logger.Info($"Find keyframe with image {image}");
-            var arguments = $"-i \"{movie}\" -loop 1 -i \"{image}\" -an -filter_complex \"blend=difference:shortest=1,blackframe=98:32\" -f null -";
+            var arguments = $"-i \"{movie}\" -loop 1 -i \"{image}\" -an -filter_complex \"blend=difference:shortest=1,blackframe=95:32\" -f null -";
             _frame = null;
 
             await HandleWithCancellationToken(async token =>
