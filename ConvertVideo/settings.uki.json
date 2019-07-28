@@ -1,0 +1,15 @@
+﻿{
+    "FfmpegFullPath": "C:\\Users\\Jan\\Videos\\ffmpeg\\bin\\ffmpeg.exe",
+    "FfmpegEncoder": "h264_nvenc",
+    "StartImageFile": "\\\\nuc.lan\\tv\\Tekenfilm\\Uki\\uki.start.png",
+    "AddFramesAfterStartImage": 0,
+    "StopImageFile": "\\\\nuc.lan\\tv\\Tekenfilm\\Uki\\uki.stop.png",
+    "AddFramesAfterStopImage": 500,
+    "SourceFolder": "\\\\nuc.lan\\tv\\Tekenfilm\\Uki",
+    "OutputFolder": "\\\\diskstation.lan\\public\\tekenfilms\\Uki",
+    "FilenameFilter": "Uki",
+    "SkipFileIfOutputExists": true,
+    "DefaultVideoLengthInSeconds": 360,
+    "FramesPerSecond": 25,
+    "ThumbnailTakenInFramesAfterStart": "350"
+}

@@ -2,7 +2,7 @@
   "profiles": {
     "ConvertVideo": {
       "commandName": "Project",
-      "commandLineArgs": "settings.roos.json"
+      "commandLineArgs": "settings.uki.json"
     }
   }
 }
