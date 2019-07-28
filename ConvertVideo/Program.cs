@@ -94,7 +94,8 @@ namespace ConvertVideo
                     continue;
                 }
 
-                var endFrame = await FindKeyFrame(_settings.StopImageFile);
+                var startFrameForEnd = startFrames.Value.frame + (_settings.FramesPerSecond * 180);
+                var endFrame = await FindKeyFrame(_settings.StopImageFile, startFrameForEnd);
                 if (!endFrame.HasValue)
                 {
                     Logger.Info($"No end frame. Use the end time {_settings.DefaultVideoLengthInSeconds}s from the settings");
@@ -102,8 +103,9 @@ namespace ConvertVideo
                 }
 
                 var thumbnail = await CreateThumbnail(startFrames.Value);
-                var title = ExtractTitle(thumbnail);
-                await ConvertVideo(startFrames.Value.keyframe, endFrame.Value.frame, output.FullName);
+                var title = _outputFileName;
+                if(_settings.TextLocations != null) title = ExtractTitle(thumbnail);
+                await ConvertVideo(startFrames.Value.keyframe + _settings.AddFramesAfterStartImage, endFrame.Value.frame + _settings.AddFramesAfterStopImage, output.FullName);
                 CreateNfo(title, new FileInfo(thumbnail).Name);
                 Logger.Info($"Finished conversion of {_input.FullName}");
             }
@@ -150,7 +152,7 @@ namespace ConvertVideo
             File.WriteAllText(nfo.FullName, $"<?xml version=\"1.0\" encoding=\"utf-8\"?><episodedetails><title>{title}</title><thumb>{thumbnail}</thumb></episodedetails>");
         }
 
-        public string ExtractTitle(string thumbnail)
+        private string ExtractTitle(string thumbnail)
         {
             var pix = Pix.LoadFromFile(thumbnail);
             var engine = new TesseractEngine(".", _settings.TextLanguage, EngineMode.Default);
@@ -217,29 +219,40 @@ namespace ConvertVideo
             return true;
         }
 
-        private async Task<(int frame, int keyframe)?> FindKeyFrame(string image)
+        private async Task<(int frame, int keyframe)?> FindKeyFrame(string image, int startFromFrameNumber = 0)
         {
             if (_token.IsCancellationRequested) return null;
             if (string.IsNullOrWhiteSpace(image)) return null;
-            return await _ffmpeg.FindFrameByImage(_input.FullName, image);
+            var result = await _ffmpeg.FindFrameByImage(_input.FullName, image, FrameToTimeStamp(startFromFrameNumber));
+            if (!result.HasValue) return null;
+
+            
+            var frame = result.Value.frame + startFromFrameNumber;
+            var keyframe = result.Value.keyframe + startFromFrameNumber;
+            return (frame, keyframe);
+
         }
 
         private async Task<string> CreateThumbnail((int frame, int keyframe) startFrames)
         {
             if (_token.IsCancellationRequested) return null;
             var frameNumber = startFrames.frame + _settings.ThumbnailTakenInFramesAfterStart;
-            var start = TimeSpan.FromSeconds((double)frameNumber / 25).ToString(TimeFormat);
             var thumbnail = GetOutputFileAs("jpg", "-thumb");
-            await _ffmpeg.ExtractImage(_input.FullName, thumbnail.FullName, start);
+            await _ffmpeg.ExtractImage(_input.FullName, thumbnail.FullName, FrameToTimeStamp(frameNumber));
             return thumbnail.FullName;
         }
 
         private async Task ConvertVideo(int startFrame, int endFrame, string output)
         {
             if (_token.IsCancellationRequested) return;
-            var start = TimeSpan.FromSeconds((double)startFrame / 25).ToString(TimeFormat);
-            var end = TimeSpan.FromSeconds((double)(endFrame - startFrame) / 25).ToString(TimeFormat);
-            await _ffmpeg.Convert(_input.FullName, output, start, end);
+            await _ffmpeg.Convert(_input.FullName, output, FrameToTimeStamp(startFrame), FrameToTimeStamp(endFrame - startFrame));
+        }
+
+        private string FrameToTimeStamp(int frameNumber)
+        {
+            return frameNumber == 0 ? 
+                TimeSpan.FromSeconds(0).ToString(TimeFormat) : 
+                TimeSpan.FromSeconds((double)frameNumber / _settings.FramesPerSecond).ToString(TimeFormat);
         }
     }
 }

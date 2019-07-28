@@ -1,28 +1,15 @@
 ﻿{
     "FfmpegFullPath": "C:\\Users\\Jan\\Videos\\ffmpeg\\bin\\ffmpeg.exe",
     "FfmpegEncoder": "h264_nvenc",
-    "StartImageFile": "C:\\Users\\Jan\\Videos\\brandweer.start.png",
-    "StopImageFile": "",
-    "SourceFolder": "\\\\diskstation.lan\\public\\tekenfilms\\brandweermansam",
-    "OutputFolder": "\\\\nuc.lan\\tv\\Tekenfilm\\Brandweerman Sam",
-    "FilenameFilter": "Brandweerman",
+    "StartImageFile": "\\\\nuc.lan\\tv\\Tekenfilm\\Uki\\uki.start.png",
+    "AddFramesAfterStartImage": 0,
+    "StopImageFile": "\\\\nuc.lan\\tv\\Tekenfilm\\Uki\\uki.stop.png",
+    "AddFramesAfterStopImage": 500,
+    "SourceFolder": "\\\\nuc.lan\\tv\\Tekenfilm\\Uki",
+    "OutputFolder": "\\\\diskstation.lan\\public\\tekenfilms\\Uki",
+    "FilenameFilter": "Uki",
     "SkipFileIfOutputExists": true,
-    "DefaultVideoLengthInSeconds": 700,
+    "DefaultVideoLengthInSeconds": 360,
     "FramesPerSecond": 25,
-    "ThumbnailTakenInFramesAfterStart": "775",
-    "TextLocations": [
-        {
-            "x": 300,
-            "y": 700,
-            "width": 1400,
-            "height": 300
-        },
-        {
-            "x": 300,
-            "y": 150,
-            "width": 1400,
-            "height": 300
-        }
-    ],
-    "TextLanguage": "nld" 
+    "ThumbnailTakenInFramesAfterStart": "350"
 }

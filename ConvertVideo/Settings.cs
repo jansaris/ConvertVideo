@@ -10,7 +10,9 @@ namespace ConvertVideo
         public string FfmpegFullPath;
         public string FfmpegEncoder;
         public string StartImageFile;
+        public int AddFramesAfterStartImage;
         public string StopImageFile;
+        public int AddFramesAfterStopImage;
         public string SourceFolder;
         public string OutputFolder;
         public string FilenameFilter;

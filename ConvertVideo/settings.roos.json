@@ -1,0 +1,24 @@
+﻿{
+    "FfmpegFullPath": "C:\\Users\\Jan\\Videos\\ffmpeg\\bin\\ffmpeg.exe",
+    "FfmpegEncoder": "h264_nvenc",
+    "StartImageFile": "\\\\nuc.lan\\tv\\Tekenfilm\\Juf Roos\\roos.start.png",
+    "AddFramesAfterStartImage": -100,
+    "StopImageFile": "\\\\nuc.lan\\tv\\Tekenfilm\\Juf Roos\\roos.stop.png",
+    "AddFramesAfterStopImage": 125,
+    "SourceFolder": "\\\\nuc.lan\\tv\\Tekenfilm\\Juf Roos",
+    "OutputFolder": "\\\\diskstation.lan\\public\\tekenfilms\\Juf Roos",
+    "FilenameFilter": "Juf",
+    "SkipFileIfOutputExists": true,
+    "DefaultVideoLengthInSeconds": 360,
+    "FramesPerSecond": 25,
+    "ThumbnailTakenInFramesAfterStart": "-25",
+    "TextLocations": [
+        {
+            "x": 575,
+            "y": 800,
+            "width": 1100,
+            "height": 100
+        }
+    ],
+    "TextLanguage": "nld"
+}

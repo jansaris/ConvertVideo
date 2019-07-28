@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <None Remove="settings.json" />
+    <None Remove="settings.roos.json" />
+    <None Remove="settings.sam.json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -17,6 +19,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="settings.roos.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="settings.sam.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="settings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
